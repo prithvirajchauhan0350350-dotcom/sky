@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPY CONSOLE</title>
+<style>
+  :root{--bg:#070505;--panel:#120d08;--line:#3a2410;--am:#fbbf24;--am2:#fde68a;
+        --dim:#8a7a5c;--txt:#e8dcc3;--ok:#34d399;--bad:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1100px 700px at 20% -10%,#1a1004 0%,var(--bg) 55%);
+       color:var(--txt);font:13.5px/1.5 Consolas,"Segoe UI",monospace;height:100vh;
+       display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;
+         border-bottom:1px solid var(--line);background:#0a0603}
+  .eye{width:38px;height:38px;border-radius:50%;flex:none;border:2px solid var(--am);
+       display:flex;align-items:center;justify-content:center;font-size:17px;
+       box-shadow:0 0 14px #b4530966,inset 0 0 10px #b4530944;animation:blink 5s infinite}
+  @keyframes blink{0%,92%,100%{opacity:1}95%{opacity:.25}}
+  h1{font-size:15px;letter-spacing:5px;color:var(--am);font-weight:700}
+  h1 small{display:block;font-size:9px;letter-spacing:2px;color:var(--dim);margin-top:2px}
+  .hublink{margin-left:auto;color:var(--dim);text-decoration:none;font-size:12px;
+           border:1px solid var(--line);padding:6px 12px;border-radius:8px}
+  .hublink:hover{color:var(--am);border-color:var(--am)}
+  main{flex:1;display:flex;min-height:0}
+  nav{width:150px;border-right:1px solid var(--line);padding:14px 10px;display:flex;
+      flex-direction:column;gap:4px;background:#0a0603}
+  nav button{background:none;border:1px solid transparent;color:var(--dim);text-align:left;
+      padding:9px 12px;border-radius:8px;cursor:pointer;font:inherit;letter-spacing:1px}
+  nav button:hover{color:var(--am2)}
+  nav button.act{color:var(--am);border-color:var(--line);background:#171006}
+  #wrap{flex:1;display:flex;min-width:0}
+  #forms{width:390px;border-right:1px solid var(--line);padding:16px;overflow-y:auto}
+  .pane{display:none}.pane.act{display:block}
+  .pane h2{font-size:12px;letter-spacing:3px;color:var(--am);margin-bottom:12px}
+  .op{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--panel)}
+  .op b{color:var(--am2);font-size:12.5px;letter-spacing:1px}
+  .op .hint{color:var(--dim);font-size:11px;margin:3px 0 8px}
+  input,textarea,select{width:100%;background:#0c0805;border:1px solid var(--line);color:var(--txt);
+      border-radius:6px;padding:7px 9px;font:inherit;margin:4px 0 8px;outline:none}
+  input:focus,textarea:focus{border-color:var(--am)}
+  textarea{resize:vertical;min-height:54px}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  button.run{background:#2a1a05;border:1px solid #b45309;color:var(--am2);font-weight:700;
+      padding:8px 16px;border-radius:6px;cursor:pointer;font:inherit;letter-spacing:1px;width:100%}
+  button.run:hover{background:#3d2408}
+  button.run:disabled{opacity:.45;cursor:wait}
+  label.chk{display:flex;gap:6px;align-items:center;color:var(--dim);font-size:11.5px;margin-bottom:8px}
+  label.chk input{width:auto;margin:0}
+  #out{flex:1;display:flex;flex-direction:column;min-width:0;background:#050302}
+  #bar{padding:10px 16px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px;
+       letter-spacing:2px;display:flex;gap:14px;align-items:center}
+  #bar b{color:var(--am)}
+  #res{flex:1;overflow:auto;padding:16px;white-space:pre-wrap;word-break:break-word;
+       color:#d8c9a3;font-size:12.5px;line-height:1.55}
+  #res .err{color:var(--bad)}
+  #res img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin-top:8px}
+  .tag{display:inline-block;border:1px solid var(--line);color:var(--dim);border-radius:5px;
+       padding:1px 8px;font-size:10.5px;margin:2px 3px 2px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="eye">&#128065;</div>
+  <h1>SPY CONSOLE<small>SKY AGENT &middot; DIRECT CONTROL &middot; NO LLM</small></h1>
+  <a class="hublink" href="/">&#8592; SKY HUB</a>
+</header>
+<main>
+  <nav id="tabs"></nav>
+  <div id="wrap">
+    <div id="forms"></div>
+    <div id="out">
+      <div id="bar">OUTPUT &mdash; <b id="opname">idle</b></div>
+      <div id="res">Awaiting orders, sir. Pick a module on the left.</div>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function esc(s){return String(s).replace(/</g,"&lt;");}
+
+// op definitions: tab -> ops. f = fields [key, placeholder, type]
+const TABS = {
+ "VITALS":[
+  {op:"vitals",name:"VITALS SNAPSHOT",hint:"Battery, RAM, disk, internet, CPU, active window.",f:[]},
+  {op:"diagnose",name:"FULL DIAGNOSTICS",hint:"Full system sweep (takes ~30-60s).",f:[]},
+ ],
+ "SECURITY":[
+  {op:"security_scan",name:"SECURITY SCAN",hint:"Defender, firewall, updates, listening ports, shares (own machine only).",f:[]},
+  {op:"net_scan",name:"NETWORK MAP",hint:"Ping sweep + ARP of the local network.",f:[["cidr","cidr (empty = auto)","text"]]},
+  {op:"hash",name:"FILE HASH",hint:"Integrity fingerprint of any file.",f:[["path","C:\\path\\to\\file","text"],["algorithm","sha256 / md5 / sha1","text"]]},
+  {op:"pw_strength",name:"PASSWORD AUDIT",hint:"Offline strength check. Never stored, never sent.",f:[["pw","password to audit","password"]]},
+ ],
+ "FILES":[
+  {op:"encrypt",name:"ENCRYPT FILE",hint:"AES-style stream cipher with password-derived key.",f:[["path","C:\\path\\to\\file","text"],["password","password","password"]],chk:["delete_original","shred original after encrypt"]},
+  {op:"decrypt",name:"DECRYPT FILE",hint:"Restore an encrypted file (ends with .skyenc).",f:[["path","C:\\path\\file.skyenc","text"],["password","password","password"]]},
+  {op:"organize",name:"ORGANIZE FOLDER",hint:"Sort a messy folder into category subfolders. Dry-run first!",f:[["path","C:\\path\\to\\folder","text"]],chk:["apply","APPLY for real (default = dry run)"]},
+  {op:"analyse",name:"ANALYZE DATA",hint:"Profile any CSV/TSV/JSON/Excel: stats, outliers, correlations.",f:[["path","C:\\path\\data.csv","text"]]},
+ ],
+ "REMOTE":[
+  {op:"screenshot",name:"TAKE SCREENSHOT",hint:"Capture the screen; result shown on the right.",f:[]},
+  {op:"active_window",name:"ACTIVE WINDOW",hint:"Which window is focused right now.",f:[]},
+  {op:"type_text",name:"TYPE TEXT",hint:"Types into the focused window. Runs immediately.",f:[["text","text to type","text"]]},
+  {op:"click",name:"CLICK AT",hint:"Moves mouse and clicks. Runs immediately.",f:[["x","x","text"],["y","y","text"],["button","left / right","text"]],chk:["double","double-click"]},
+  {op:"press_key",name:"PRESS KEY",hint:"e.g. enter, ctrl+s, alt+tab. Runs immediately.",f:[["key","key combo","text"]]},
+  {op:"open_app",name:"OPEN APP",hint:"Launch an app by name (notepad, calc, chrome...).",f:[["name","app name","text"]]},
+ ],
+ "OPS":[
+  {op:"send_email",name:"SEND EMAIL",hint:"From your own account (spy.env SMTP).",f:[["to","recipient@example.com","text"],["subject","subject","text"],["body","message body","textarea"]]},
+  {op:"smart_home",name:"SMART HOME",hint:"Philips Hue. action: on/off/brightness/color; empty device = all.",f:[["device","device (empty = all)","text"],["action","on / off / brightness / color","text"],["value","value (optional)","text"]]},
+ ],
+ "LAB":[
+  {op:"simulate",name:"RUN SIMULATION",hint:"RK4 physics. Fields left empty use defaults.",
+   sel:["kind","projectile|pendulum|spring|cooling|orbit"],
+   f:[["v0","projectile: speed m/s","text"],["angle_deg","projectile: angle","text"],
+      ["length_m","pendulum: length m","text"],["theta0_deg","pendulum: start deg","text"],
+      ["mass_kg","spring: mass kg","text"],["k","spring: k N/m","text"],
+      ["t0_c","cooling: start °C","text"],["alt_km","orbit: altitude km","text"]]},
+ ],
+ "AUDIT":[
+  {op:"audit_log",name:"AUDIT TRAIL",hint:"Last 120 lines of everything SKY/Spy executed on this PC.",f:[]},
+  {op:"list_screenshots",name:"SCREENSHOT VAULT",hint:"Recent captures (click one to view).",f:[]},
+ ],
+};
+
+const nav=$("tabs"), forms=$("forms");
+Object.keys(TABS).forEach((t,i)=>{
+  const b=document.createElement("button");b.textContent=t;if(i===0)b.className="act";
+  b.onclick=()=>{[...nav.children].forEach(x=>x.classList.remove("act"));b.classList.add("act");
+    [...forms.children].forEach(x=>x.classList.remove("act"));forms.children[i].classList.add("act");};
+  nav.appendChild(b);
+  const pane=document.createElement("div");pane.className="pane"+(i===0?" act":"");
+  pane.innerHTML="<h2>"+t+"</h2>";
+  TABS[t].forEach(d=>pane.appendChild(opCard(d)));
+  forms.appendChild(pane);
+});
+
+function opCard(d){
+  const c=document.createElement("div");c.className="op";
+  let h="<b>"+d.name+"</b><div class='hint'>"+d.hint+"</div>";
+  if(d.sel) h+="<label style='color:var(--dim);font-size:11px'>kind</label><select id='k_"+d.op+"'>"+
+    d.sel[1].split("|").map(k=>"<option>"+k+"</option>").join("")+"</select>";
+  (d.f||[]).forEach(f=>{
+    h+="<input id='i_"+d.op+"_"+f[0]+"' type='"+(f[2]==="password"?"password":(f[2]==="textarea"?"text":f[2]))+
+       "' placeholder='"+esc(f[1])+"' "+(f[2]==="textarea"?"data-ta='1'":"")+">";
+  });
+  (d.chk||[]).forEach(c2=>{h+="<label class='chk'><input type='checkbox' id='c_"+d.op+"_"+c2[0]+"'> "+esc(c2[1])+"</label>";});
+  h+="<button class='run'>EXECUTE</button>";
+  c.innerHTML=h;
+  c.querySelector(".run").onclick=e=>run(d,e.target);
+  return c;
+}
+
+async function run(d,btn){
+  btn.disabled=true;
+  $("opname").textContent=d.name;
+  $("res").innerHTML="<span style='color:var(--dim)'>working&hellip;</span>";
+  const body={op:d.op};
+  if(d.sel) body.kind=$("k_"+d.op).value;
+  (d.f||[]).forEach(f=>{const el=$("i_"+d.op+"_"+f[0]);
+    if(el&&el.value!=="") body[f[0]]=el.value;});
+  (d.chk||[]).forEach(c2=>{body[c2[0]]=$("c_"+d.op+"_"+c2[0]).checked;});
+  if(d.op==="pw_strength"&&!body.pw){$("res").innerHTML="<span class='err'>enter a password</span>";btn.disabled=false;return;}
+  if(["hash","encrypt","decrypt","analyse","organize"].includes(d.op)&&!body.path){
+    $("res").innerHTML="<span class='err'>enter a path</span>";btn.disabled=false;return;}
+  if(d.op==="send_email"&&!body.to){$("res").innerHTML="<span class='err'>enter recipient</span>";btn.disabled=false;return;}
+  try{
+    const r=await fetch("/api/spy",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)});
+    const j=await r.json();
+    render(j,d);
+  }catch(err){$("res").innerHTML="<span class='err'>console unreachable</span>";}
+  btn.disabled=false;
+}
+
+function render(j,d){
+  if(j.error){$("res").innerHTML="<span class='err'>ERROR: "+esc(j.error)+"</span>";return;}
+  if(d.op==="screenshot"){
+    let html="";
+    if(j.shot||j.path||j.file){
+      const p=String(j.shot||j.path||j.file).replace(/\\/g,"/");
+      const fn=p.split("/").pop();
+      html="<b>captured:</b> "+esc(j.shot||j.path||j.file)+"<img src='/spyshots/"+encodeURIComponent(fn)+"'>";
+    } else html=esc(JSON.stringify(j,null,1));
+    $("res").innerHTML=html;return;
+  }
+  if(d.op==="list_screenshots"){
+    const shots=j.shots||[];
+    $("res").innerHTML=(shots.length?"<span class='tag'>"+shots.join("</span> <span class='tag'>")+"</span>"
+      :"<span style='color:var(--dim)'>none yet</span>")+
+      "<div id='shotview'></div>";
+    [...$("res").querySelectorAll(".tag")].forEach((el,i)=>el.onclick=()=>{
+      $("res").innerHTML="<img src='/spyshots/"+encodeURIComponent(shots[i])+"'>";});
+    return;
+  }
+  $("res").textContent=JSON.stringify(j,null,1);
+}
+</script>
+</body>
+</html>

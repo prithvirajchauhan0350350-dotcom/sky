@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKY FILES &amp; MEMORY</title>
+<style>
+  :root{--bg:#05070d;--panel:#0a0f1a;--line:#13213a;--cy:#22d3ee;--cy2:#67e8f9;
+        --dim:#5b6b85;--txt:#c9d6e8;--ok:#34d399;--warn:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 800px at 70% -10%,#0a1526 0%,var(--bg) 55%);
+       color:var(--txt);font:13px/1.5 Consolas,"Segoe UI",monospace;height:100vh;
+       display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;
+         border-bottom:1px solid var(--line);background:#04060b}
+  h1{font-size:14px;letter-spacing:4px;color:var(--cy2);font-weight:600}
+  nav{margin-left:auto;display:flex;gap:10px}
+  nav a{text-decoration:none;color:var(--dim);border:1px solid var(--line);
+        padding:6px 12px;border-radius:8px;font-size:11.5px;letter-spacing:1px}
+  nav a:hover{color:var(--cy);border-color:var(--cy)}
+  nav a.here{color:var(--cy);border-color:var(--cy)}
+  .modebar{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);background:#04060b}
+  .modebar button{background:none;border:1px solid var(--line);color:var(--dim);font:inherit;
+        padding:6px 18px;border-radius:7px;cursor:pointer;letter-spacing:2px}
+  .modebar button.act{color:var(--cy);border-color:var(--cy);background:#08222c}
+  main{flex:1;display:flex;min-height:0}
+  #left{width:400px;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  #crumb{padding:10px 16px;border-bottom:1px solid var(--line);color:var(--dim);font-size:12px;
+         white-space:nowrap;overflow-x:auto}
+  #crumb a{color:var(--cy2);cursor:pointer;text-decoration:none}
+  #tree{flex:1;overflow-y:auto;padding:8px}
+  .row{display:flex;gap:8px;align-items:center;padding:5px 10px;border-radius:6px;cursor:pointer}
+  .row:hover{background:#0a1826}
+  .row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .sz{color:var(--dim);font-size:10.5px}
+  .row.d{color:var(--cy2)}
+  .row.pin{color:#a5b4fc}
+  .pins{padding:8px;border-bottom:1px solid var(--line)}
+  .pins .lbl{font-size:9.5px;letter-spacing:2px;color:var(--dim);padding:2px 10px 6px}
+  .pinrow{display:flex;flex-wrap:wrap;gap:6px;padding:0 8px}
+  .pinrow span{border:1px solid var(--line);border-radius:5px;padding:3px 9px;font-size:11px;
+        color:#a5b4fc;cursor:pointer}
+  .pinrow span:hover{border-color:var(--cy);color:var(--cy)}
+  #right{flex:1;display:flex;flex-direction:column;min-width:0}
+  #bar{padding:10px 16px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:1px;
+       color:var(--dim);display:flex;gap:14px;align-items:center}
+  #bar b{color:var(--cy)}
+  #view{flex:1;overflow:auto;padding:14px 18px;white-space:pre-wrap;word-break:break-word;
+        font-size:12.5px;color:#d4e0ef}
+  #view img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}
+  #view audio{width:100%;margin:10px 0}
+  #view .err{color:var(--warn)}
+  .fact{padding:6px 10px;border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--panel)}
+  .fact .k{color:var(--cy);font-size:10px;letter-spacing:1px}
+  .fact .v{margin-top:2px;word-break:break-word}
+  .msg{padding:7px 10px;border-left:2px solid var(--line);margin:6px 0;background:var(--panel)}
+  .msg.u{border-color:#155e75}
+  .msg.a{border-color:#7c3aed55}
+  .msg .who{font-size:10px;letter-spacing:2px;color:var(--dim)}
+  .counts{color:var(--dim);font-size:11px}
+  .search{width:100%;background:#070c16;border:1px solid var(--line);color:var(--txt);
+          border-radius:7px;padding:7px 10px;font:inherit;outline:none;margin:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>SKY FILES &amp; MEMORY</h1>
+  <nav><a href="/">HUB</a><a href="/spy">SPY</a><a class="here" href="/files">FILES</a></nav>
+</header>
+<div class="modebar">
+  <button id="m-files" class="act">SKY FILES</button>
+  <button id="m-mem">MEMORY &amp; KNOWLEDGE</button>
+  <span class="counts" id="counts" style="margin-left:auto;color:var(--dim);font-size:11px;align-self:center"></span>
+</div>
+<main>
+  <div id="left">
+    <div id="crumb"></div>
+    <div class="pins" id="pins"><div class="lbl">IMPORTANT</div><div class="pinrow" id="pinrow"></div></div>
+    <div id="tree"></div>
+  </div>
+  <div id="right">
+    <div id="bar">viewer</div>
+    <div id="view">Pick a file, sir.</div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/</g,"&lt;");
+let cur="";
+
+$("m-files").onclick=()=>{setMode(true)};
+$("m-mem").onclick=()=>{setMode(false)};
+function setMode(files){
+  $("m-files").classList.toggle("act",files);
+  $("m-mem").classList.toggle("act",!files);
+  $("crumb").style.display=files?"block":"none";
+  $("pins").style.display=files?"block":"none";
+  if(files){loadTree(cur);$("bar").innerHTML="viewer";$("view").innerHTML="Pick a file, sir.";}
+  else loadMemory();
+}
+
+function fmt(n){return n>1e6?(n/1e6).toFixed(1)+"MB":n>1e3?(n/1e3).toFixed(1)+"KB":n+"B";}
+
+async function loadTree(p){
+  cur=p||"";
+  const r=await(await fetch("/api/files?path="+encodeURIComponent(cur))).json();
+  if(r.error){$("tree").innerHTML="<div class='row'>"+esc(r.error)+"</div>";return;}
+  const parts=cur?cur.split("/"):[];
+  let ch="<a data-p=''>SKY/</a> ";
+  let acc="";
+  parts.forEach(pt=>{acc+=(acc?"/":"")+pt;
+    ch+=" <a data-p='"+esc(acc)+"'>"+esc(pt)+"</a> /";});
+  $("crumb").innerHTML=ch;
+  [...$("crumb").querySelectorAll("a")].forEach(a=>a.onclick=()=>loadTree(a.dataset.p));
+  $("pinrow").innerHTML=(r.pins||[]).map(x=>
+    "<span data-p='"+esc(x)+"'>"+esc(x.split("/").pop())+"</span>").join("");
+  [...$("pinrow").children].forEach(s=>s.onclick=()=>openFile(s.dataset.p));
+  let h=r.dirs.map(d=>"<div class='row d' data-d='"+esc(cur?cur+"/"+d:d)+"'><span>&#128193;</span><span class='nm'>"+esc(d)+"/</span></div>").join("");
+  h+=r.files.map(f=>{
+    const rel=(cur?cur+"/":"")+f.name;
+    return "<div class='row' data-f='"+esc(rel)+"'><span>&#128196;</span><span class='nm'>"+esc(f.name)+
+      "</span><span class='sz'>"+fmt(f.mtime)+" &middot; "+fmt2(f.size)+"</span></div>";
+  }).join("");
+  $("tree").innerHTML=h||"<div class='row'><span class='sz'>(empty)</span></div>";
+  [...$("tree").querySelectorAll(".row.d")].forEach(el=>el.onclick=()=>loadTree(el.dataset.d));
+  [...$("tree").querySelectorAll(".row[data-f]")].forEach(el=>el.onclick=()=>openFile(el.dataset.f));
+}
+function fmt(ts){const d=new Date(ts*1000);
+  return d.toLocaleDateString([],{day:"2-digit",month:"short"})+" "+
+         d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});}
+function fmt2(n){return n>1e6?(n/1e6).toFixed(1)+"MB":n>1e3?(n/1e3).toFixed(1)+"KB":n+"B";}
+
+async function openFile(rel){
+  $("bar").innerHTML="viewing <b>"+esc(rel)+"</b> &nbsp; <a href='/raw/"+encodeURIComponent(rel)+
+    "' target='_blank' style='color:var(--cy)'>raw &#8599;</a>";
+  $("view").innerHTML="<span style='color:var(--dim)'>loading&hellip;</span>";
+  const r=await(await fetch("/api/file?path="+encodeURIComponent(rel))).json();
+  if(r.error){$("view").innerHTML="<span class='err'>"+esc(r.error)+"</span>";return;}
+  if(r.binary){
+    const k=r.kind;
+    if(k===".png"||k===".jpg"||k===".jpeg"||k===".gif")
+      $("view").innerHTML="<img src='/raw/"+encodeURIComponent(rel)+"'>";
+    else if(k===".mp3"||k===".wav")
+      $("view").innerHTML="<audio controls src='/raw/"+encodeURIComponent(rel)+"'></audio>";
+    else
+      $("view").innerHTML="<span class='err'>binary file ("+fmt2(r.size)+") — use the raw link above</span>";
+    return;
+  }
+  $("view").textContent=r.text;
+}
+
+async function loadMemory(){
+  const r=await(await fetch("/api/memory")).json();
+  if(r.error){$("view").innerHTML="<span class='err'>"+esc(r.error)+"</span>";return;}
+  const c=r.counts;
+  $("bar").innerHTML="<b>MEMORY</b> — "+c.facts+" facts &middot; "+c.messages+" messages &middot; "+
+    c.reminders+" pending reminders &nbsp; <span class='counts'>(newest first)</span>";
+  const factHtml=r.facts.map(f=>"<div class='fact'><span class='k'>#"+f.id+" ["+esc(f.kind)+
+    (f.key?":"+esc(f.key):"")+"]</span><div>"+esc(f.value)+"</div></div>").join("");
+  const msgHtml=r.messages.slice().reverse().map(m=>"<div class='msg "+(m.role==="user"?"u":"a")+
+    "'><span class='who'>"+(m.role==="user"?"YOU":"SKY")+"</span><div>"+esc(m.content)+"</div></div>").join("");
+  $("view").innerHTML=
+    "<input class='search' id='fq' placeholder='filter facts&hellip;'>"+
+    "<h3 style='color:var(--cy);letter-spacing:2px;margin:10px 0 4px'>FACTS &amp; LEARNED KNOWLEDGE</h3>"+
+    "<div id='facts'>"+factHtml+"</div>"+
+    "<h3 style='color:var(--cy);letter-spacing:2px;margin:16px 0 4px'>RECENT CONVERSATION</h3>"+msgHtml;
+  $("fq").oninput=()=>{
+    const q=$("fq").value.toLowerCase();
+    [...$("facts").children].forEach(el=>{
+      el.style.display=el.textContent.toLowerCase().includes(q)?"":"none";});
+  };
+}
+
+$("m-files").classList.add("act");
+loadTree("");
+</script>
+</body>
+</html>

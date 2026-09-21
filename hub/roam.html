@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SKY</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden;
+               font-family: Consolas, monospace; cursor: default;
+               background: #040b12; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+          border: 1px solid rgba(34,211,238,.30);
+          box-shadow: 0 0 26px rgba(34,211,238,.14) inset,
+                      0 0 14px rgba(34,211,238,.18);
+          background:
+            radial-gradient(120% 55% at 50% 100%, rgba(34,211,238,.13), transparent 60%),
+            radial-gradient(80% 40% at 50% 0%, rgba(34,211,238,.07), transparent 55%),
+            #040b12; }
+  #wrap::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: repeating-linear-gradient(0deg,
+              rgba(34,211,238,.028) 0 1px, transparent 1px 3px); }
+
+  /* --- chat bubble --- */
+  #bubble { flex: 1 1 auto; margin: 6px 10px 2px; padding: 8px 10px; overflow-y: auto;
+            background: rgba(4,14,22,.78); border: 1px solid rgba(34,211,238,.35);
+            border-radius: 12px; box-shadow: 0 0 18px rgba(34,211,238,.12) inset;
+            font-size: 12.5px; line-height: 1.45; color: #d7f5ff; display: none; }
+  #bubble.show { display: block; }
+  #bubble .who { color: #22d3ee; font-weight: bold; font-size: 11px; }
+  #bubble .me  { color: #fbbf24; font-weight: bold; font-size: 11px; }
+  #bubble .warn{ color: #f87171; }
+  #bubble div  { margin: 0 0 5px; white-space: pre-wrap; word-break: break-word; }
+
+  /* --- confirm mini-bar --- */
+  #confirm { display: none; margin: 2px 10px; padding: 5px 8px; border-radius: 10px;
+             background: rgba(60,20,10,.85); border: 1px solid rgba(248,113,113,.5);
+             font-size: 11.5px; color: #fecaca; }
+  #confirm button { font-family: inherit; font-size: 11px; margin-right: 6px; padding: 2px 8px;
+                    border-radius: 6px; border: 1px solid rgba(34,211,238,.5);
+                    background: rgba(8,30,40,.9); color: #a5f3fc; cursor: pointer; }
+
+  /* --- girl stage --- */
+  #stage { flex: 0 0 330px; position: relative; overflow: hidden; }
+  #stage::after { content: ""; position: absolute; left: 50%; bottom: 6px;
+            width: 190px; height: 26px; transform: translateX(-50%);
+            border-radius: 50%;
+            background: radial-gradient(closest-side, rgba(34,211,238,.30), transparent 75%);
+            filter: blur(2px); pointer-events: none; }
+  #l2d { width: 100%; height: 100%; display: block; }
+  #tag { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center;
+         font-size: 10px; letter-spacing: 2px; color: rgba(34,211,238,.55);
+         text-shadow: 0 0 6px rgba(34,211,238,.4); pointer-events: none; }
+
+  /* --- control bar --- */
+  #bar { flex: 0 0 auto; display: flex; gap: 5px; padding: 0 8px 8px; }
+  #inp { flex: 1; background: rgba(4,14,22,.85); border: 1px solid rgba(34,211,238,.4);
+         border-radius: 9px; color: #d7f5ff; font-family: inherit; font-size: 12.5px;
+         padding: 7px 9px; outline: none; user-select: text; -webkit-user-select: text; }
+  #inp:focus { border-color: rgba(34,211,238,.8); box-shadow: 0 0 10px rgba(34,211,238,.25); }
+  .btn { flex: 0 0 auto; background: rgba(8,30,40,.9); border: 1px solid rgba(34,211,238,.45);
+         color: #a5f3fc; border-radius: 9px; font-family: inherit; font-size: 11px;
+         padding: 6px 9px; cursor: pointer; }
+  .btn:hover { background: rgba(14,50,64,.95); }
+  .btn.rec { border-color: #f87171; color: #fca5a5; animation: pulse 1s infinite; }
+  .btn.off { opacity: .45; }
+  @keyframes pulse { 50% { box-shadow: 0 0 12px rgba(248,113,113,.6); } }
+  #quit.arm { border-color: #f87171; color: #fecaca; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="bubble"></div>
+  <div id="confirm"><span id="cq"></span><button id="cy">YES</button><button id="cn">NO</button></div>
+  <div id="stage">
+    <canvas id="l2d"></canvas>
+    <div id="tag">SKY</div>
+  </div>
+  <div id="bar">
+    <input id="inp" autocomplete="off" placeholder="bolo, sir…">
+    <button class="btn" id="mic" title="voice">◉</button>
+    <button class="btn" id="roam" title="pause/resume roaming">⇄</button>
+    <button class="btn" id="hud" title="open SKY OS HUD">▦</button>
+    <button class="btn" id="quit" title="close">✕</button>
+  </div>
+</div>
+
+<script src="/static/pixi.min.js"></script>
+<script src="/static/live2dcubismcore.min.js"></script>
+<script src="/static/pixi-live2d-cubism4.min.js"></script>
+<script src="/skyface.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let l2dModel = null, baseScale = 1, faceDir = 1;
+let audioCtx = null, analyser = null, waveData = null;
+let pollTimer = null, confirmLive = false;
+
+/* ---------- pywebview api ---------- */
+function pyApi(){ return window.pywebview && window.pywebview.api; }
+const api = () => pyApi() || { move_to(){}, quit(){}, open_hud(){} };
+
+/* ---------- bubble ---------- */
+function esc(s){ const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function bub(who, text){
+  const b = $("bubble"); b.classList.add("show");
+  const row = document.createElement("div");
+  row.innerHTML = '<span class="' + (who === "me" ? "me" : "who") + '">' +
+                  (who === "me" ? "YOU ▸ " : "SKY ▸ ") + "</span>" + esc(text);
+  b.append(row); b.scrollTop = b.scrollHeight;
+  while (b.children.length > 30) b.firstChild.remove();
+}
+
+/* ---------- audio / TTS ---------- */
+function wireAnalyser(a){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.resume) audioCtx.resume();
+    const src = audioCtx.createMediaElementSource(a);
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 128;
+    waveData = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser); analyser.connect(audioCtx.destination);
+  }catch(e){ analyser = null; }
+}
+function driveMouth(){
+  requestAnimationFrame(driveMouth);
+  if(!l2dModel) return;
+  let v = 0;
+  const talking = analyser && document.body.dataset.speaking === "1";
+  if (talking && waveData){
+    let sum = 0, n = Math.min(10, waveData.length);
+    for (let i = 0; i < n; i++) sum += waveData[i];
+    v = Math.min(1, (sum/n)/140); v = .12 + v * .88;
+  } else if (document.body.dataset.speaking === "1"){
+    v = .35 + .3 * Math.abs(Math.sin(Date.now()/90));
+  }
+  try{
+    const cm = l2dModel.internalModel.coreModel;
+    cm.setParameterValueById("PARAM_MOUTH_OPEN_Y", v);
+  }catch(e){}
+}
+function say(text){
+  if(!text) return;
+  document.body.dataset.speaking = "1";
+  SkyFace.speaking(true);
+  fetch("/api/tts?text=" + encodeURIComponent(text.slice(0, 600)))
+    .then(r => r.ok ? r.blob() : Promise.reject())
+    .then(b => {
+      const a = new Audio(URL.createObjectURL(b));
+      wireAnalyser(a);
+      a.onended = a.onerror = () => { document.body.dataset.speaking = "0"; SkyFace.speaking(false); };
+      a.play().catch(() => { document.body.dataset.speaking = "0"; SkyFace.speaking(false); });
+    })
+    .catch(() => {
+      try{
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.02;
+        u.onend = u.onerror = () => { document.body.dataset.speaking = "0"; SkyFace.speaking(false); };
+        speechSynthesis.speak(u);
+      }catch(e){ document.body.dataset.speaking = "0"; SkyFace.speaking(false); }
+    });
+}
+
+/* ---------- confirm bridge (system actions need YES/NO) ---------- */
+function startConfirmPoll(){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try{
+      const p = await (await fetch("/api/pending")).json();
+      const c = $("confirm");
+      if (p.pending && p.pending.length){
+        const x = p.pending[p.pending.length - 1];
+        confirmLive = true;
+        c.style.display = "block";
+        $("cq").textContent = "⚠ " + x.cmd;
+        c.dataset.id = x.id;
+      } else { c.style.display = "none"; confirmLive = false; }
+    }catch(e){}
+  }, 1500);
+}
+$("cy").onclick = () => decide(true);
+$("cn").onclick = () => decide(false);
+function decide(ans){
+  const c = $("confirm");
+  fetch("/api/confirm", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({id: c.dataset.id, answer: ans})});
+  c.style.display = "none"; confirmLive = false;
+}
+
+/* ---------- chat ---------- */
+$("inp").addEventListener("focus", () => { roaming.pause = true; });
+$("inp").addEventListener("blur",  () => { roaming.pause = false; });
+$("bar").addEventListener("submit", send);
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && document.activeElement === $("inp")) send(e);
+});
+async function send(e){
+  if (e) e.preventDefault();
+  const inp = $("inp"), text = inp.value.trim();
+  if(!text) return;
+  inp.value = "";
+  bub("me", text);
+  SkyFace.hear(text);
+  if (await obeyMove(text)) return;   // movement order — no LLM needed
+  bub("sky", "…");
+  startConfirmPoll();
+  try{
+    const r = await fetch("/api/chat", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body: JSON.stringify({text})});
+    const j = await r.json();
+    const reply = j.reply || ("! " + (j.error || "no reply"));
+    const rows = $("bubble").children;
+    rows[rows.length - 1].innerHTML = '<span class="who">SKY ▸ </span>' + esc(reply);
+    SkyFace.react(reply);
+    say(reply);
+  }catch(err){
+    const rows = $("bubble").children;
+    rows[rows.length - 1].innerHTML = '<span class="who">SKY ▸ </span>hub unreachable';
+  }
+  clearInterval(pollTimer);
+  const c = $("confirm"); if (!confirmLive) c.style.display = "none";
+}
+
+/* ---------- mic ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+$("mic").onclick = () => {
+  if(!SR){ $("inp").placeholder = "mic needs WebView2/Edge"; return; }
+  const r = new SR(); r.lang = "en-IN"; r.interimResults = false;
+  $("mic").classList.add("rec");
+  r.onresult = e => { $("inp").value = e.results[0][0].transcript;
+    $("mic").classList.remove("rec"); send(); };
+  r.onerror = r.onend = () => $("mic").classList.remove("rec");
+  r.start();
+};
+
+/* ---------- buttons ---------- */
+$("roam").onclick = () => {
+  roaming.hold = !roaming.hold;
+  $("roam").classList.toggle("off", roaming.hold);
+  $("roam").title = roaming.hold ? "roaming paused" : "pause/resume roaming";
+};
+$("hud").onclick = () => api().open_hud();
+let quitArm = 0;
+$("quit").onclick = () => {
+  const q = $("quit");
+  if (Date.now() - quitArm < 2200) api().quit();
+  else { quitArm = Date.now(); q.classList.add("arm"); q.textContent = "sure?";
+         setTimeout(() => { q.classList.remove("arm"); q.textContent = "✕"; }, 2200); }
+};
+
+/* ---------- Live2D girl ---------- */
+async function initLive2D(){
+  try{
+    if(!window.PIXI || !PIXI.live2d || !PIXI.live2d.Live2DModel)
+      throw new Error("live2d libs missing");
+    const host = $("stage");
+    const app = new PIXI.Application({
+      view: $("l2d"), backgroundAlpha: 0, antialias: true,
+      autoDensity: true, resolution: Math.min(2, window.devicePixelRatio || 1),
+      width: host.clientWidth || 330, height: host.clientHeight || 330,
+      resizeTo: host
+    });
+    const model = await PIXI.live2d.Live2DModel.from(
+      "/live2d/shizuku/runtime/shizuku.model3.json");
+    l2dModel = model;
+    app.stage.addChild(model);
+    const fit = () => {
+      const w = app.screen.width, h = app.screen.height;
+      const s = Math.min((h * .92) / model.height, (w * .92) / model.width);
+      baseScale = s;
+      model.scale.set(s * faceDir, s);
+      model.anchor.set(.5, .97);
+      model.position.set(w / 2, h * .99);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    try{ model.motion("Idle"); }catch(e){}
+    SkyFace.init(model);
+    /* poke her → she reacts */
+    $("stage").addEventListener("click", ev => {
+      if (ev.target.closest("#bar")) return;
+      SkyFace.poke();
+    });
+    /* drag her anywhere */
+    let drag = null;
+    $("stage").addEventListener("pointerdown", ev => {
+      if (ev.target.closest("#bar")) return;
+      drag = { sx: ev.screenX, sy: ev.screenY, wx: window.screenX, wy: window.screenY };
+      roaming.dragging = true;
+    });
+    window.addEventListener("pointermove", ev => {
+      if (!drag) return;
+      const nx = drag.wx + (ev.screenX - drag.sx), ny = drag.wy + (ev.screenY - drag.sy);
+      clampToScreen(nx, ny, true);
+    });
+    window.addEventListener("pointerup", () => {
+      if (drag){ drag = null; roaming.dragging = false;
+                 roaming.next = Date.now() + 12000; }
+    });
+  }catch(e){
+    $("tag").textContent = "SKY · hologram offline";
+    bub("sky", "hologram offline (" + ((e && e.message) || e) + ") — main abhi bhi sun rahi hu.");
+  }
+}
+
+/* ---------- ROAMING — she wanders the desktop ---------- */
+$("wrap").addEventListener("mouseenter", () => { roaming.hover = true; });
+$("wrap").addEventListener("mouseleave", () => { roaming.hover = false; });
+function clampToScreen(nx, ny, apply){
+  const W = (screen.availWidth || 1280), H = (screen.availHeight || 720);
+  const w = 350, h = 500;                       // must match sky_roam.py window size
+  const cx = Math.max(8, Math.min(nx, W - w - 8));
+  const cy = Math.max(4, Math.min(ny, H - h + 40));
+  roaming.x = cx; roaming.y = cy;
+  if (apply) api().move_to(Math.round(cx), Math.round(cy));
+}
+function pickTarget(){
+  const W = (screen.availWidth || 1280), H = (screen.availHeight || 720);
+  const w = 350, h = 500;
+  roaming.tx = 8 + Math.random() * Math.max(60, W - w - 16);
+  roaming.ty = 20 + Math.random() * Math.max(60, H - h + 10);
+  roaming.ty = Math.min(roaming.ty, H - h + 40);
+}
+/* ---------- MOVEMENT ORDERS — "left jao", "idhar aao", "ruk jao" ---------- */
+const roaming = { hold: false, pause: false, dragging: false, hover: false,
+                  x: 80, y: 200, tx: null, ty: null,
+                  next: Date.now() + 9000, obeyUntil: 0 };
+function parseMove(t){
+  const s = " " + String(t || "").toLowerCase().trim() + " ";
+  const verb = /\b(jao|ja\b|ja\?|go\b|move|shift|hato|ho jao|aao|aa\b|come|chalo|udhar|wahan jao|raho|rehna)\b/.test(s);
+  const stop = /\b(ruk jao|ruko|ruk ja|stop|wahi ruk|yahin ruk|wahi raho|idhar hi raho|mat jao)\b/.test(s);
+  const hold = /\b(ghumna band|ghumna rok|roam band|ghumna mat|mat ghumo|roam mat|idhar hi rehna|pause roam)\b/.test(s);
+  const unhold = /\b(ghumo|ghumti raho|ghumna shuru|roam karo|roam on|free ghumo|wapas ghumo)\b/.test(s);
+  const here = /\b(idhar|yahan|here|mere paas|pass aao|paas aao)\b/.test(s) &&
+               /\b(aao|aa\b|come|jao)\b/.test(s);
+  if (!verb && !stop && !hold && !unhold && !here) return null;
+  if (stop) return { stop: true };
+  if (hold) return { hold: true };
+  if (unhold) return { unhold: true };
+  if (here) return { here: true };
+  const W = (screen.availWidth || 1280), H = (screen.availHeight || 720);
+  const w = 350, h = 500, m = 8;
+  const left   = /\b(left|bayen|baye|baen|daaye baye)\b/.test(s);
+  const right  = /\b(right|dahine|dahina|dayen|daye)\b/.test(s);
+  const top    = /\b(upar|up\b|top|upper|ooper)\b/.test(s);
+  const down   = /\b(neeche|niche|down|bottom|tale|neeche)\b/.test(s);
+  const center = /\b(center|centre|beech|middle|dil me)\b/.test(s);
+  const corner = /\b(corner|kone|kona|kinare)\b/.test(s);
+  const midY = () => H * (0.3 + Math.random() * 0.35);
+  if (center) return { x: (W - w) / 2, y: H * 0.42 };
+  if (left && top)    return { x: m, y: 24 };
+  if (right && top)   return { x: W - w - m, y: 24 };
+  if (left && down)   return { x: m, y: H - h + 34 };
+  if (right && down)  return { x: W - w - m, y: H - h + 34 };
+  if (left)  return { x: m, y: Math.max(24, midY()) };
+  if (right) return { x: W - w - m, y: Math.max(24, midY()) };
+  if (top)   return { x: Math.random() * Math.max(60, W - w - 16), y: 24 };
+  if (down || corner) return { x: Math.random() * Math.max(60, W - w - 16), y: H - h + 34 };
+  return null;
+}
+async function obeyMove(text){
+  const mv = parseMove(text);
+  if (!mv) return false;
+  const W = (screen.availWidth || 1280), H = (screen.availHeight || 720);
+  if (mv.stop){
+    roaming.tx = roaming.ty = null;
+    roaming.next = Date.now() + 30000;
+    bub("sky", "theek hai sir, yahin ruk gayi.");
+  } else if (mv.hold){
+    roaming.hold = true; $("roam").classList.add("off");
+    bub("sky", "ghumna band — abhi yahin hu.");
+  } else if (mv.unhold){
+    roaming.hold = false; $("roam").classList.remove("off");
+    bub("sky", "ghoomna shuru!");
+  } else if (mv.here){
+    $("inp").blur();
+    const p = await api().come_here();
+    if (p && p.length === 2){
+      roaming.tx = Math.max(8, Math.min(p[0] - 175, W - 358));
+      roaming.ty = Math.max(4, Math.min(p[1] - 60, H - 460));
+      roaming.obeyUntil = Date.now() + 12000;
+      bub("sky", "aa rahi hu sir!");
+    } else bub("sky", "position nahi mil paayi, dobara boliye.");
+  } else if (mv.x !== undefined){
+    $("inp").blur();
+    roaming.tx = mv.x; roaming.ty = mv.y;
+    roaming.obeyUntil = Date.now() + 12000;
+    /* "center me raho" → wahan pahunch kar der tikna */
+    roaming.next = Date.now() + (/\b(raho|rehna)\b/.test(text) ? 90000 : 20000);
+    bub("sky", "ji sir, aa rahi hu wahan.");
+  }
+  SkyFace.set("happy", 2600);
+  return true;
+}
+function roamTick(){
+  requestAnimationFrame(roamTick);
+  const now = Date.now();
+  const busy = roaming.hold || roaming.pause || roaming.dragging || roaming.hover ||
+               confirmLive || document.body.dataset.speaking === "1" ||
+               document.activeElement === $("inp");
+  const obey = now < roaming.obeyUntil && !roaming.dragging;
+  /* walk toward target */
+  if (roaming.tx !== null){
+    const dx = roaming.tx - roaming.x, dy = roaming.ty - roaming.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 6){
+      roaming.tx = null;
+      faceDir = 1;
+      if (l2dModel) l2dModel.scale.set(baseScale, baseScale);
+    } else if (!busy || obey){
+      const step = Math.min(d, 3 + d * .045);
+      const nx = roaming.x + dx / d * step, ny = roaming.y + dy / d * step;
+      clampToScreen(nx, ny, true);
+      const nd = dx !== 0 ? Math.sign(dx) : faceDir;
+      if (nd !== faceDir && l2dModel){ faceDir = nd; l2dModel.scale.set(baseScale * faceDir, baseScale); }
+      /* walking bob */
+      if (l2dModel){
+        const bob = Math.abs(Math.sin(now / 130)) * 5;
+        l2dModel.position.y = l2dModel.parent.height * .99 - bob;
+      }
+    }
+  }
+  /* schedule next wander */
+  if (roaming.tx === null && !busy && now > roaming.next){
+    pickTarget();
+    roaming.next = now + 15000 + Math.random() * 12000;
+  }
+  if (busy) roaming.next = Math.max(roaming.next, now + 9000);
+}
+
+/* ---------- boot ---------- */
+initLive2D();
+driveMouth();
+roamTick();
+startConfirmPoll();
+setTimeout(() => {
+  const h = new Date().getHours();
+  const hi = h < 5 ? "Late night, sir" : h < 12 ? "Good morning, sir"
+           : h < 17 ? "Good afternoon, sir" : "Good evening, sir";
+  const g = hi + " — Sky roaming mode on. Main screen pe ghoomti hu; click karo, likho, ya MIC dabao.";
+  bub("sky", g);
+  SkyFace.set("happy", 5000);
+  say("Hello sir. Sky roaming mode on — I will wander around. Just click me or type.");
+}, 1400);
+</script>
+</body>
+</html>

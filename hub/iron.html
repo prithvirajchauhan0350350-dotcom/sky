@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SKY OS</title>
+<link rel="stylesheet" href="/iron.css">
+</head>
+<body>
+<div id="grid-fx"></div>
+<div id="scan-fx"></div>
+<div id="vig-fx"></div>
+
+<header id="topbar">
+  <div id="brand">
+    <div id="mark">◤ S.K.Y.</div>
+    <div id="sub">SKY OS · NEURAL INTERFACE v3.0</div>
+  </div>
+  <div id="clockwrap">
+    <div id="clock">00:00:00</div>
+    <div id="date">— · —</div>
+  </div>
+  <div id="statuswrap">
+    <button id="agency-btn" title="Agency specialist roster">◤ AGENCY</button>
+    <div id="state" class="st-online">ONLINE</div>
+    <div id="leds">
+      <div class="led"><span id="led-ear" class="dot off"></span>EAR</div>
+      <div class="led"><span id="led-skyd" class="dot off"></span>SKYD</div>
+      <div class="led"><span id="led-brain" class="dot off"></span>BRAIN</div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="panel" id="comms">
+    <div class="ptitle">◤ COMMS LOG</div>
+    <div id="chat"></div>
+  </section>
+
+  <section id="stage">
+    <canvas id="wave" width="760" height="760"></canvas>
+    <div id="base">
+      <div id="base-glow"></div>
+      <svg id="base-rings" viewBox="0 0 400 120">
+        <ellipse class="be b1" cx="200" cy="60" rx="186" ry="43"/>
+        <ellipse class="be b2" cx="200" cy="60" rx="150" ry="32"/>
+        <ellipse class="be b3" cx="200" cy="60" rx="112" ry="23"/>
+      </svg>
+    </div>
+    <div id="holo">
+      <canvas id="l2d"></canvas>
+      <div id="holo-fx"></div>
+      <div id="holo-fallback"><img id="avimg" src="/avatar/portrait.jpg" alt="SKY"></div>
+    </div>
+    <div id="avlabel">SKY · <span id="avstate">ONLINE</span></div>
+  </section>
+
+  <section id="rightcol">
+    <div class="panel" id="diag">
+      <div class="ptitle">◤ DIAGNOSTICS</div>
+      <div id="gauges">
+        <div class="gauge"><canvas class="gc" width="110" height="110" data-k="cpu"></canvas><div class="gl">CPU</div></div>
+        <div class="gauge"><canvas class="gc" width="110" height="110" data-k="ram"></canvas><div class="gl">MEM</div></div>
+        <div class="gauge"><canvas class="gc" width="110" height="110" data-k="disk"></canvas><div class="gl">DISK</div></div>
+      </div>
+      <pre id="vitals">collecting…</pre>
+      <div id="feed"></div>
+    </div>
+    <div class="panel" id="tasks">
+      <div class="ptitle">◤ SCHEDULED</div>
+      <div id="rems">none</div>
+    </div>
+  </section>
+</main>
+
+<footer id="botbar">
+  <div id="confirmbar" style="display:none">
+    <span id="cq"></span>
+    <button id="cy">YES, RUN IT</button>
+    <button id="cn">NO</button>
+  </div>
+  <form id="f">
+    <span class="prompt">›</span>
+    <input id="inp" autocomplete="off" placeholder="type a command, sir…">
+    <button id="mic" type="button" title="voice input">◉ MIC</button>
+  </form>
+  <div id="hints">ENTER SEND · F11 FULLSCREEN · ESC EXIT</div>
+</footer>
+
+<aside id="agency" class="hidden">
+  <div id="agency-head">
+    <div class="ptitle">◤ AGENCY ROSTER · <span id="agency-count">0</span> SPECIALISTS</div>
+    <button id="agency-close" title="close">✕</button>
+  </div>
+  <div id="agency-active" class="hidden">
+    <span class="pulse-dot"></span>
+    <span id="agency-active-name"></span>
+    <button id="agency-deact">STAND DOWN</button>
+  </div>
+  <input id="agency-q" placeholder="search specialists…" autocomplete="off">
+  <div id="agency-tabs"></div>
+  <div id="agency-list"></div>
+  <div id="agency-detail" class="hidden">
+    <div id="agency-detail-top">
+      <button id="agency-back">◂ ROSTER</button>
+      <button id="agency-activate">⚡ ACTIVATE</button>
+    </div>
+    <div id="agency-detail-head"></div>
+    <pre id="agency-detail-body"></pre>
+  </div>
+</aside>
+
+<div id="boot">
+  <div id="boot-reactor"><div class="core"></div></div>
+  <pre id="bootlog"></pre>
+  <div id="bootbar"><i></i></div>
+  <div id="boothint">click to skip</div>
+</div>
+
+<script src="/static/pixi.min.js"></script>
+<script src="/static/live2dcubismcore.min.js"></script>
+<script src="/static/pixi-live2d-cubism4.min.js"></script>
+<script src="/skyface.js"></script>
+<script src="/iron.js"></script>
+</body>
+</html>

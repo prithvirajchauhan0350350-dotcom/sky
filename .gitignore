@@ -1,0 +1,26 @@
+# heavy / vendored — never in the repo
+.venv/
+addons/
+addons-env/
+repos/
+backup/
+__pycache__/
+*.pyc
+
+# personal & private — never commit
+.env
+config.json
+data/
+logs/
+knowledge.txt
+agency/
+avatar/
+face/
+hub/tts_cache/
+*.pre-voice-polish
+*.mp3
+
+# third-party Live2D model binaries (licensed, not redistributable)
+*.moc3
+*.model3.json
+*.physics3.json

@@ -1,0 +1,17 @@
+{
+  "brain": {
+    "active": "omni",
+    "profiles": {
+      "omni":   {"kind": "openai",    "base_url": "http://localhost:20128/v1",
+                 "model": "glm-5.3-flash", "api_key_env": "OMNIROUTE_API_KEY"},
+      "claude": {"kind": "anthropic", "model": "claude-sonnet-5",
+                 "api_key_env": "CLAUDE_API_KEY"}
+    }
+  },
+  "history_messages": 8,
+  "history_cap": 300,
+  "input_char_cap": 4000,
+  "open_mic_s": 45,
+  "briefing_time": "09:00",
+  "_comment": "Copy to config.json and adjust. Keys live in .env (see .env.example) - never committed."
+}

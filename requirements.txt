@@ -1,0 +1,28 @@
+# SKY — Windows requirements  (install into .venv with Windows Python)
+#   .venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# --- brain ---
+openai>=1.40          # GLM-5.3 via OmniRoute (http://localhost:20128/v1)
+anthropic>=0.40       # optional second brain (config.json -> brain.active)
+
+# --- voice ---
+edge-tts>=6.1         # speech synthesis (mp3 -> Windows MCI playback)
+sounddevice>=0.4.6    # microphone capture
+faster-whisper>=1.0   # local speech-to-text (small, int8, CPU)
+openwakeword>=0.4     # 'hey sky/jarvis' wake word (onnx model bundled)
+
+# --- eyes ---
+rapidocr>=3.0        # on-screen text reading (OCR fallback; old name
+                     # rapidocr-onnxruntime has no Python 3.14 wheels)
+
+# --- body / scheduling / UI ---
+psutil>=5.9           # CPU/RAM/disk telemetry (also used by win/spy_vitals)
+apscheduler>=3.10     # skyd: reminders, daily briefing, background learning
+textual>=0.50         # sky_hud terminal dashboard
+numpy>=1.24           # audio frames (wake + whisper)
+
+# --- Windows skill modules (win/ imported in-process by spy_bridge) ---
+pyautogui>=0.9.54     # type_text / click_at / press_key
+pandas>=2.0           # optional: spy_data analyse() accelerator
+openpyxl>=3.1         # optional: .xlsx reading in spy_data
+cryptography>=41.0    # optional: real Fernet encryption in spy_sec

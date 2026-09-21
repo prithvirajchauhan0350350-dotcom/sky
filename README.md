@@ -54,8 +54,13 @@
     54|
     55|- **Memory** — SQLite `data/memory.db`: identity facts newest-wins, general
     56|  facts capped 100, rolling history 300, old turns auto-summarized.
-    57|  Fact extraction: "my name is X", "mera naam X hai", "i live in X",
-    58|  "i like X", "remember that X". Survives restarts.
+  Fact extraction: "my name is X", "mera naam X hai", "i live in X",
+  "i like X", "remember that X". Survives restarts.
+- **Mood core** — persistent emotional telemetry (affection / curiosity /
+  stress in `data/mood.json`): every turn shifts the state, it survives
+  restarts, and it is injected into the system prompt so SKY genuinely
+  reacts to how she is treated. Retro TVA timeclock UI with live meters:
+  http://127.0.0.1:20130/tva
     59|- **Voice** — edge-tts female Indian voices (en-IN-NeerjaNeural English,
     60|  hi-IN-SwaraNeural Hinglish/Hindi) → mp3 → Windows MCI playback (no ffmpeg
     61|  needed). Ears: faster-whisper small int8 on CPU. `pick_voice()` switches

@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import sky  # noqa: E402
-from core import agency, persona, telemetry, voice  # noqa: E402
+from core import agency, mood, persona, telemetry, voice  # noqa: E402
 from core.memory import Memory  # noqa: E402
 
 import automation  # noqa: E402  (spy modules live at SKY root)
@@ -116,7 +116,7 @@ def api_chat(text):
         reply = sky.agent_turn(CFG, mem, text, confirm_fn)
         say_text, show_text = persona.split_bilingual(reply)
         log.info("turn done in %.1fs chars=%d", time.time() - t0, len(show_text))
-        return {"reply": show_text, "spoken": say_text}
+        return {"reply": show_text, "spoken": say_text, "mood": mood.state()}
     except Exception as e:
         log.exception("chat failed")
         return {"error": str(e)[:200]}
@@ -461,6 +461,8 @@ class Handler(BaseHTTPRequestHandler):
                 _serve_file(self, Path(__file__).parent / "roam.html", cache="no-store")
             elif u.path == "/skyface.js":
                 _serve_file(self, Path(__file__).parent / "skyface.js", cache="no-store")
+            elif u.path == "/tva":
+                _serve_file(self, Path(__file__).parent / "tva.html", cache="no-store")
             elif u.path.startswith("/raw/"):
                 rel = u.path[len("/raw/"):]
                 f, code = api_raw(rel)
@@ -516,6 +518,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(api_avatar())
             elif u.path == "/api/health":
                 self._json(api_health())
+            elif u.path == "/api/mood":
+                self._json(mood.state())
             elif u.path == "/api/agency":
                 self._json(api_agency())
             elif u.path == "/api/agency/agent":

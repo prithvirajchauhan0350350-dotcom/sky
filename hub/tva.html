@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SKY // TVA Emotional Timeclock</title>
+    <style>
+        body {
+            background-color: #0b0702;
+            color: #ff9d00;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-shadow: inset 0 0 120px rgba(255, 120, 0, 0.25);
+        }
+        .monitor {
+            width: 850px;
+            max-width: 95vw;
+            border: 4px solid #cc7a00;
+            padding: 20px;
+            background: #140c02;
+            border-radius: 8px;
+            box-shadow: 0 0 25px rgba(255, 140, 0, 0.4);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px dashed #cc7a00;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        .emotion-dashboard {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 6px;
+            background: rgba(255, 157, 0, 0.05);
+            border: 1px solid #663d00;
+            padding: 8px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+        .chat-box {
+            height: 320px;
+            overflow-y: auto;
+            border: 1px solid #663d00;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: rgba(0,0,0,0.4);
+        }
+        .message { margin-bottom: 12px; line-height: 1.4; }
+        .ai { color: #ffb733; }
+        .user { color: #ffca80; }
+        .spoken { color: #c98a3d; font-size: 13px; }
+        .input-area { display: flex; gap: 10px; }
+        input {
+            flex-grow: 1;
+            background: #000;
+            border: 1px solid #ff9d00;
+            color: #ff9d00;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+        }
+        button {
+            background: #ff9d00;
+            border: none;
+            color: #000;
+            font-weight: bold;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        button:hover { background: #ffb733; }
+    </style>
+</head>
+<body>
+    <div class="monitor">
+        <div class="header">
+            <span>SKY &bull; TVA EMOTIONAL TERMINAL v5.0</span>
+            <span id="tva-code">TVA-INIT-0000</span>
+        </div>
+
+        <div class="emotion-dashboard">
+            <div>MOOD: <span id="dash-mood" style="color:#fff;">Calm / Attentive</span></div>
+            <div>AFFECTION: <span id="dash-aff">50%</span></div>
+            <div>CURIOSITY: <span id="dash-cur">70%</span></div>
+            <div>STRESS: <span id="dash-str">15%</span></div>
+        </div>
+
+        <div class="chat-box" id="chat-box">
+            <div class="message ai"><strong>[SKY Core]:</strong> *flickers amber softly* Core online, sir. Mood telemetry synced and persistent. Aap kaise hain aaj, timeline ke hisaab se?</div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Talk to SKY — she remembers how you treat her..." autofocus onkeypress="if(event.key==='Enter') sendToTVA()">
+            <button onclick="sendToTVA()">TRANSMIT</button>
+        </div>
+    </div>
+
+    <script>
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
+        }
+
+        function render(el, who, text, spoken) {
+            let html = '<div class="message ' + (spoken ? 'ai' : 'user') + '"><strong>[' + (spoken ? 'SKY Core' : 'Variant') + ']:</strong> ';
+            html += esc(text).replace(/\n/g, '<br>');
+            if (spoken) html += '<br><span class="spoken">SPOKEN: ' + esc(spoken) + '</span>';
+            html += '</div>';
+            document.getElementById('chat-box').innerHTML += html;
+        }
+
+        async function sendToTVA() {
+            const inputField = document.getElementById('user-input');
+            const chatBox = document.getElementById('chat-box');
+            const text = inputField.value.trim();
+            if (!text) return;
+
+            chatBox.innerHTML += '<div class="message user"><strong>[Variant]:</strong> ' + esc(text) + '</div>';
+            inputField.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    chatBox.innerHTML += '<div class="message ai"><strong>[Error]:</strong> Temporal network disruption: ' + esc(data.error) + '</div>';
+                } else {
+                    chatBox.innerHTML += '<div class="message ai"><strong>[SKY Core]:</strong> ' + esc(data.reply).replace(/\n/g, '<br>') + '</div>';
+                    const m = data.mood || {};
+                    document.getElementById('dash-mood').innerText = m.mood || '?';
+                    document.getElementById('dash-aff').innerText = (m.affection != null ? m.affection : '?') + '%';
+                    document.getElementById('dash-cur').innerText = (m.curiosity != null ? m.curiosity : '?') + '%';
+                    document.getElementById('dash-stress').innerText = (m.stress != null ? m.stress : '?') + '%';
+                    const hx = '0123456789ABCDEF';
+                    const r = k => Array.from({length: 4}, () => hx[Math.floor(Math.random() * 16)]).join('');
+                    document.getElementById('tva-code').innerText = 'TVA-' + r() + '-' + r();
+                }
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {
+                chatBox.innerHTML += '<div class="message ai"><strong>[Error]:</strong> Temporal network disruption detected.</div>';
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>

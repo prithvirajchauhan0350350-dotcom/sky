@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from core import agency, agent, eyes, llm, memory, persona, telemetry, voice, wake  # noqa: E402
+from core import agency, agent, eyes, llm, memory, mood, persona, telemetry, voice, wake  # noqa: E402
 from core.redact import redact  # noqa: E402
 
 log = logging.getLogger("sky")
@@ -125,12 +125,14 @@ def confirm_gate(cmd: str) -> bool:
 def agent_turn(cfg, mem, text, confirm_fn) -> str:
     """One full agentic turn (tools + memory)."""
     text = redact(text)  # secrets never enter history, logs, or the model
+    mood.update(text)  # emotional telemetry shifts with how sir treats SKY
     mem.extract_facts(text)  # before prompt: facts stated now count now
     history = [{"role": r, "content": c} for r, c in mem.history(cfg.get("history_messages", 8))]
     cfg["_agent_system"] = agent.AGENT_PROMPT + "\n\n" + build_system(cfg, mem)
     _agency = agency.override_block(ROOT)   # active Agency specialist persona
     if _agency:
         cfg["_agent_system"] += "\n\n" + _agency
+    cfg["_agent_system"] += "\n\n" + mood.prompt_block()  # live mood -> tone
     reply = redact(agent.run_agent(cfg, mem, text, history, confirm_fn=confirm_fn))
     mem.append_message("user", text, cap=cfg.get("history_cap", 300))
     mem.append_message("assistant", reply, cap=cfg.get("history_cap", 300))

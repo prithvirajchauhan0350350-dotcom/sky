@@ -133,3 +133,22 @@ by `core/redact.py` before anything is stored in history, logged, or spoken.
 Identity facts live in `data/memory.db` (local SQLite) and never leave the
 machine. The RAM answer comes from the `vitals` tool's top-RAM process
 breakdown (`spy_vitals.top_ram`).
+
+**Verified live (2026-09-21, real hub responses):**
+
+> **user:** hey sky, what's eating my RAM?
+> **sky:** Chrome's the main culprit, sir — 2.71 GB, then my own Kali VM
+> (vmmemWSL) at 1.88 GB. RAM's at 79%, CPU hot at 80% with 23h uptime.
+
+> **user:** my api key is sk-tes...7890
+> **sky:** Oye — don't paste keys in chat, sir 😅 it got masked here, but if
+> that's a live key, treat it as exposed: revoke it and generate a fresh one.
+
+Post-flight check on `data/memory.db`: the user turn is stored as
+`my api key is sk-***REDACTED***` — the raw key never reached the LLM, the
+logs, or the store.
+
+**Fresh PC?** Double-click `INSTALL-SKY.bat` — it auto-installs Python if
+missing, builds the venv, installs deps, registers boot autostart
+(SKY/SKYEAR/SKYHUB), sets up the 5-minute crash watchdog, and starts SKY.
+See `README-INSTALL.txt`.

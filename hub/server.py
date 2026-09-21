@@ -68,7 +68,16 @@ def confirm_fn(cmd, detail=""):
     return bool(rec["answer"])
 
 
-def api_health():
+_DSTATUS = {"ts": 0.0, "data": None}
+
+
+def _daemon_status():
+    """Cached process scan (10s TTL) — full psutil sweep during an active LLM
+    call used to stall /api/health into timeouts. Cache keeps health instant."""
+    now = time.time()
+    cached = _DSTATUS["data"]
+    if cached is not None and now - _DSTATUS["ts"] < 10:
+        return cached
     daemons = {"skyear": False, "skyd": False}
     try:
         import psutil
@@ -83,10 +92,16 @@ def api_health():
                 pass
     except Exception as e:
         log.warning("daemon check failed: %s", e)
+    _DSTATUS["ts"] = now
+    _DSTATUS["data"] = daemons
+    return daemons
+
+
+def api_health():
     brain = CFG.get("brain", {}).get("active", "omni")
     prof = (CFG.get("brain", {}).get("profiles") or {}).get(brain) or {}
     model = prof.get("model", "?")
-    return {"ok": True, "daemons": daemons, "brain": brain, "model": model}
+    return {"ok": True, "daemons": _daemon_status(), "brain": brain, "model": model}
 
 
 def api_chat(text):
